@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Knowledge-base Search</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      color: #333;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #1f4e79;
+    }
+
+    .box {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      background-color: #fdfdfd;
+    }
+
+    h3 {
+      margin-top: 0;
+      color: #1f4e79;
+    }
+
+    input[type="file"], input[type="text"] {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 70%;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #1f4e79;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #145185;
+    }
+
+    #uploadRes {
+      margin-top: 1rem;
+      color: green;
+      font-weight: bold;
+    }
+
+    #ans {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: #f0f4f8;
+      border-radius: 8px;
+      line-height: 1.6;
+    }
+
+    #ans ul {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Knowledge-base Search Engine</h1>
+    
+    <div class="box">
+      <h3>Upload PDF</h3>
+      <form id="uploadForm">
+        <input type="file" id="file" name="file" accept=".pdf" />
+        <button type="submit">Upload & Ingest</button>
+      </form>
+      <div id="uploadRes"></div>
+    </div>
+    
+    <div class="box">
+      <h3>Ask a Question</h3>
+      <form id="qform">
+        <input type="text" id="q" name="q" placeholder="Type your question..." />
+        <button type="submit">Search</button>
+      </form>
+      <div id="ans"></div>
+    </div>
+  </div>
+
+<script>
+document.getElementById("uploadForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = document.getElementById("file").files[0];
+  if(!f){ alert("Choose a PDF"); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  try {
+    const res = await fetch("/upload", { method:"POST", body:fd });
+    const data = await res.json();
+    document.getElementById("uploadRes").innerText = data.message || "PDF uploaded successfully!";
+  } catch(err) {
+    document.getElementById("uploadRes").innerText = "Upload failed!";
+    console.error(err);
+  }
+}
+
+document.getElementById("qform").onsubmit = async (e) => {
+  e.preventDefault();
+  const q = document.getElementById("q").value;
+  if(!q){ alert("Enter a question"); return; }
+  const fd = new FormData();
+  fd.append("q", q);
+  try {
+    const res = await fetch("/query", { method:"POST", body:fd });
+    const data = await res.json();
+
+    // Convert response to string safely
+    let answerText = "";
+    if(typeof data === "string") answerText = data;
+    else if(data.answer) answerText = data.answer;
+    else answerText = JSON.stringify(data);
+
+    // Ignore OPENAI_API_KEY messages
+    answerText = answerText.replace(/OPENAI_API_KEY.*\n?/g, "").trim();
+
+    if(answerText === "") {
+      document.getElementById("ans").innerHTML = "<p>No answer found.</p>";
+      return;
+    }
+
+    // Split into bullet points
+    const points = answerText.split(/\n|•|-/).filter(pt => pt.trim() !== "");
+    let html = "<ul>";
+    points.forEach(pt => { html += `<li>${pt.trim()}</li>` });
+    html += "</ul>";
+    document.getElementById("ans").innerHTML = html;
+
+  } catch(err) {
+    document.getElementById("ans").innerHTML = "<p>Error fetching answer!</p>";
+    console.error(err);
+  }
+}
+</script>
+</body>
+</html>
